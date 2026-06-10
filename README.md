@@ -72,3 +72,58 @@ User Timing API, so `logComponentRender` is a no-op there.
 
 React 19.1.x is not affected. To confirm, change `react` and `react-dom` in
 `package.json` to `19.1.0` and reinstall.
+
+---
+
+## Appendix: solution tradeoffs
+
+### Option A — Patch prototype getters to non-enumerable ✅ applied
+
+```ts
+// src/paper.ts — run once after new PaperScope()
+for (const proto of [ps.Path.prototype, ps.Layer.prototype]) {
+  for (const key of Object.keys(proto)) {
+    const desc = Object.getOwnPropertyDescriptor(proto, key)
+    if (desc?.get) Object.defineProperty(proto, key, { ...desc, enumerable: false })
+  }
+}
+```
+
+**How it works:** Removes paper.js bounds/matrix getters from `for...in` enumeration,
+so `addObjectDiffToProperties` never sees them. Direct property access
+(`path.handleBounds`) is unaffected — `enumerable` only controls enumeration.
+
+**Pros:** One-time setup, zero runtime cost, no refactoring.
+
+**Cons:** Monkey-patching a third-party prototype. If a future version of paper.js
+relies on these getters being enumerable (e.g. for its own serialization walk),
+this patch would silently break it. Should be revisited when upgrading paper.js
+or when React fixes the underlying issue.
+
+**Revisit trigger:** Upgrade to paper.js > 0.12.x, or React releases a patch that
+guards `addObjectDiffToProperties` against throwing getters.
+
+---
+
+### Option B — Store path IDs in state, not path objects
+
+Keep `string[]` (paper.js `item.name`) in React state and look up live path
+objects on demand via `ps.project.getItem({ name: id })`.
+
+**Pros:** React never traverses paper.js objects — structurally correct regardless
+of React version. Survives any future change to `addObjectDiffToProperties`.
+
+**Cons:** Requires refactoring all state hooks that return `paper.Path[]`. Path
+names must be stable and unique across loads.
+
+---
+
+### Option C — Wait for React or paper.js to fix upstream
+
+`addObjectDiffToProperties` should either skip inherited prototype getters or
+`try/catch` getter invocations. This is a React bug — invoking arbitrary
+third-party getters without error handling is fragile by design.
+
+**Pros:** No code change required.
+
+**Cons:** Unknown timeline. Requires staying on React 19.1.x until resolved.
