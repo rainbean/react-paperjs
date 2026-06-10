@@ -3,12 +3,14 @@ export const FIXTURE_JSON = JSON.stringify([
     applyMatrix: true,
     children: [
       ['Path', {
+        name: 'path-1',
         segments: [[100, 100], [200, 100], [200, 200], [100, 200]],
         closed: true,
         strokeColor: [1, 0, 0, 1],
         fillColor: [0, 0, 1, 0.3],
       }],
       ['Path', {
+        name: 'path-2',
         segments: [[150, 150], [250, 150], [250, 250]],
         closed: true,
         strokeColor: [0, 1, 0, 1],

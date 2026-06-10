@@ -1,17 +1,20 @@
-import { useEffect } from 'react'
+import ps from './paper'
 
 type Props = {
-  items: paper.Path[]
+  itemIds: string[]
 }
 
-export default function PathList({ items }: Props) {
-  useEffect(() => {}, [items])
-
+export default function PathList({ itemIds }: Props) {
   return (
     <ul>
-      {items.map((item, i) => (
-        <li key={i}>path {i + 1}</li>
-      ))}
+      {itemIds.map((id) => {
+        const path = ps.project.getItem({ name: id }) as paper.Path | null
+        return (
+          <li key={id}>
+            {id} — segments: {path?.segments.length ?? '?'}
+          </li>
+        )
+      })}
     </ul>
   )
 }

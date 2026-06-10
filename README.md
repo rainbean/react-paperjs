@@ -77,7 +77,7 @@ React 19.1.x is not affected. To confirm, change `react` and `react-dom` in
 
 ## Appendix: solution tradeoffs
 
-### Option A — Patch prototype getters to non-enumerable ✅ applied
+### Option A — Patch prototype getters to non-enumerable
 
 ```ts
 // src/paper.ts — run once after new PaperScope()
@@ -105,16 +105,37 @@ guards `addObjectDiffToProperties` against throwing getters.
 
 ---
 
-### Option B — Store path IDs in state, not path objects
+### Option B — Store path IDs in state, not path objects ✅ applied
 
-Keep `string[]` (paper.js `item.name`) in React state and look up live path
-objects on demand via `ps.project.getItem({ name: id })`.
+Keep `string[]` (paper.js `item.name`) in React state and Zustand stores.
+Resolve to live path objects on demand via `ps.project.getItem({ name })`.
+
+```ts
+// Before — paper.js object in state
+const [items, setItems] = useState<paper.Path[]>([])
+
+// After — only names in state
+const [itemNames, setItemNames] = useState<string[]>([])
+
+// Resolve on demand in render / effects
+function ItemRenderer({ itemName }: { itemName: string }) {
+  const item = ps.project?.getItem({ name: itemName }) as paper.Path
+  if (!item) return null
+  // ...
+}
+```
+
+**Key constraint:** the name must be assigned to the leaf `Path`, not to a
+parent `Group`. `ps.project.getItem({ name })` matches on `item.name`; a
+`Group` node is not a `Path` and the lookup returns `undefined` if the name
+lives on the group instead of the path itself.
 
 **Pros:** React never traverses paper.js objects — structurally correct regardless
 of React version. Survives any future change to `addObjectDiffToProperties`.
 
-**Cons:** Requires refactoring all state hooks that return `paper.Path[]`. Path
-names must be stable and unique across loads.
+**Cons:** Requires refactoring all state hooks and component props that pass
+`paper.Path` objects. Path names must be stable and unique across loads
+(`importJSON` preserves names from the serialised graph).
 
 ---
 
